@@ -30,4 +30,13 @@ typedef struct {
   uint16_t bpm;
 } Sequence;
 
+typedef struct {
+  Sequence *sequence;
+  uint8_t curr_pattern;
+  uint8_t curr_measure;
+  uint8_t curr_tick;
+  bool playing;
+
+} Sequencer;
+
 int main(void) { return 0; }
