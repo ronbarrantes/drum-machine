@@ -1,3 +1,5 @@
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #define PPQN 96
@@ -36,7 +38,18 @@ typedef struct {
   uint8_t curr_measure;
   uint8_t curr_tick;
   bool playing;
-
 } Sequencer;
+
+void sequencer_start(Sequencer *sequencer) {
+  *sequencer = (Sequencer){
+    .playing = false,
+    .curr_measure = 0,
+    .curr_pattern = 0,
+    .curr_tick = 0,
+    .sequence = NULL,
+  };
+}
+
+void sequencer_update(Sequencer *sequencer, uint32_t now_ms) {}
 
 int main(void) { return 0; }
