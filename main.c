@@ -2,11 +2,13 @@
 
 #define PPQN 96
 #define MAX_NOTES_PER_MEASURE 32
+#define MAX_MEASURES_PER_PATTERN 4
+#define MAX_PATTERNS 4
 
 typedef struct {
   uint8_t pitch;
   uint8_t velocity;
-  uint16_t duration;
+  uint16_t duration_ticks;
   uint32_t start_tick;
 } Note;
 
@@ -18,8 +20,14 @@ typedef struct {
 } Measure;
 
 typedef struct {
+  Measure measures[MAX_MEASURES_PER_PATTERN];
+  uint8_t measure_count;
 } Pattern;
+
 typedef struct {
-} Song;
+  Pattern patterns[MAX_PATTERNS];
+  uint8_t pattern_count;
+  uint16_t bpm;
+} Sequence;
 
 int main(void) { return 0; }
