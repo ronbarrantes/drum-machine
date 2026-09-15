@@ -8,6 +8,7 @@
 #define MAX_NOTES_PER_MEASURE 32
 #define MAX_MEASURES_PER_PATTERN 4
 #define MAX_PATTERNS 4
+#define MAX_ACTIVE_NOTES (MAX_NOTES_PER_MEASURE * MAX_MEASURES_PER_PATTERN)
 
 typedef struct {
   uint8_t pitch;
@@ -35,12 +36,19 @@ typedef struct {
 } Sequence;
 
 typedef struct {
+  uint8_t pitch;
+  uint32_t end_tick;
+  bool active;
+} ActiveNote;
+
+typedef struct {
   const Sequence *sequence;
   uint8_t curr_pattern;
   uint8_t curr_measure;
   uint32_t curr_tick;
   uint32_t started_at_tick;
   uint32_t last_tick_at;
+  ActiveNote active_notes[MAX_ACTIVE_NOTES];
   bool playing;
 } Sequencer;
 
@@ -63,7 +71,56 @@ void note_on(uint8_t pitch, uint8_t velocity, uint32_t tick) {
          (unsigned long)tick);
 }
 
-static void emit_notes_at_position(const Sequencer *sequencer, uint32_t tick) {
+void note_off(uint8_t pitch, uint32_t tick) {
+  printf("note_off pitch=%u tick=%lu\n", pitch, (unsigned long)tick);
+}
+
+// Return the musical length of a measure, or zero for an unsupported signature.
+static uint32_t measure_length_ticks(const Measure *measure) {
+  if (measure == NULL || measure->beats_per_measure == 0) {
+    return 0;
+  }
+
+  switch (measure->beat_unit) {
+    case 1:
+    case 2:
+    case 4:
+    case 8:
+    case 16:
+    case 32:
+    case 64:
+      break;
+    default:
+      return 0;
+  }
+
+  uint32_t ticks =
+    (uint32_t)PPQN * measure->beats_per_measure * 4 / measure->beat_unit;
+  return ticks == 0 ? 0 : ticks;
+}
+
+static void release_notes_due(Sequencer *sequencer, uint32_t tick) {
+  for (size_t index = 0; index < MAX_ACTIVE_NOTES; index++) {
+    ActiveNote *active_note = &sequencer->active_notes[index];
+    if (active_note->active &&
+        (int32_t)(tick - active_note->end_tick) >= 0) {
+      note_off(active_note->pitch, tick);
+      active_note->active = false;
+    }
+  }
+}
+
+static void release_all_notes(Sequencer *sequencer, uint32_t tick) {
+  for (size_t index = 0; index < MAX_ACTIVE_NOTES; index++) {
+    ActiveNote *active_note = &sequencer->active_notes[index];
+    if (active_note->active) {
+      note_off(active_note->pitch, tick);
+      active_note->active = false;
+    }
+  }
+}
+
+static void emit_notes_at_position(Sequencer *sequencer, uint32_t tick) {
   const Pattern *pattern = &sequencer->sequence->patterns[sequencer->curr_pattern];
   const Measure *measure = &pattern->measures[sequencer->curr_measure];
 
@@ -71,6 +128,18 @@ static void emit_notes_at_position(const Sequencer *sequencer, uint32_t tick) {
     const Note *note = &measure->notes[index];
     if (note->start_tick == sequencer->curr_tick) {
       note_on(note->pitch, note->velocity, tick);
+      for (size_t active_index = 0; active_index < MAX_ACTIVE_NOTES;
+           active_index++) {
+        ActiveNote *active_note = &sequencer->active_notes[active_index];
+        if (!active_note->active) {
+          *active_note = (ActiveNote){
+            .pitch = note->pitch,
+            .end_tick = tick + note->duration_ticks,
+            .active = true,
+          };
+          break;
+        }
+      }
     }
   }
 }
@@ -115,6 +184,9 @@ bool sequencer_play(Sequencer *sequencer, uint32_t now_tick) {
     return false;
   }
 
+  if (sequencer->playing) {
+    release_all_notes(sequencer, now_tick);
+  }
   sequencer->curr_measure = 0;
   sequencer->curr_tick = 0;
   sequencer->started_at_tick = now_tick;
@@ -148,12 +220,7 @@ void sequencer_update(Sequencer *sequencer, uint32_t now_tick) {
     }
 
     const Measure *measure = &pattern->measures[sequencer->curr_measure];
-    if (measure->beats_per_measure == 0 || measure->beat_unit == 0) {
-      return;
-    }
-
-    uint32_t measure_ticks =
-      (uint32_t)PPQN * measure->beats_per_measure * 4 / measure->beat_unit;
+    uint32_t measure_ticks = measure_length_ticks(measure);
     if (measure_ticks == 0) {
       return;
     }
@@ -172,8 +239,24 @@ void sequencer_update(Sequencer *sequencer, uint32_t now_tick) {
       }
     }
 
-    emit_notes_at_position(sequencer, now_tick - ticks_to_advance);
+    uint32_t event_tick = now_tick - ticks_to_advance;
+    release_notes_due(sequencer, event_tick);
+    emit_notes_at_position(sequencer, event_tick);
   }
+}
+
+void sequencer_stop(Sequencer *sequencer, uint32_t now_tick) {
+  if (sequencer == NULL) {
+    return;
+  }
+
+  release_all_notes(sequencer, now_tick);
+  sequencer->playing = false;
+  sequencer->curr_pattern = 0;
+  sequencer->curr_measure = 0;
+  sequencer->curr_tick = 0;
+  sequencer->started_at_tick = now_tick;
+  sequencer->last_tick_at = now_tick;
 }
 
 int main(void) {
@@ -198,6 +281,7 @@ int main(void) {
   sequencer_update(&sequencer, 1000);
   sequencer_update(&sequencer, 1024);
   sequencer_update(&sequencer, 1048);
+  sequencer_stop(&sequencer, 1050);
 
   return 0;
 }

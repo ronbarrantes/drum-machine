@@ -9,8 +9,8 @@ makes the project easier to understand. Explain each change before moving on.
 - [x] Define `Note`, `Measure`, `Pattern`, and `Sequence`.
 - [x] Define `Sequencer` playback state.
 - [x] Add `sequencer_init()` with a read-only sequence pointer and stopped state.
-- [ ] Complete and demonstrate playback. Current `sequencer_update()` is a draft;
-      `main()` only constructs example notes and a measure.
+- [x] Complete and demonstrate the first note-on/note-off playback path.
+      Full playback controls and desktop clock work remain below.
 
 Current capacities are 32 notes per measure, 4 measures per pattern, and
 4 patterns per sequence. These are desktop development limits, not a settled
@@ -51,14 +51,14 @@ each expected note exactly once, including simultaneous notes and tick zero.
 
 ## 2. Make playback complete
 
-- [ ] Extract measure-length calculation when it helps readability. Check
+- [x] Extract measure-length calculation when it helps readability. Check
       supported time signatures and invalid values before division.
 - [ ] Advance through measures, then loop the selected pattern. The current
       draft advances through every pattern automatically; the writeup calls
       for selected-pattern looping, with arrangements deferred.
-- [ ] Add note-off events using `duration_ticks`. Track active notes so endings
+- [x] Add note-off events using `duration_ticks`. Track active notes so endings
       survive measure boundaries. Decide how repeated overlapping pitches work.
-- [ ] Add `sequencer_stop()`: stop playback, release active notes, reset position.
+- [x] Add `sequencer_stop()`: stop playback, release active notes, reset position.
 - [ ] Add pattern selection while stopped. Leave switching during playback
       until we choose when the switch takes effect.
 - [ ] Add focused assertions for event timing, simultaneous notes, looping,
