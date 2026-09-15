@@ -163,14 +163,14 @@ The button state should preserve:
 Build and run the demo with a C compiler:
 
 ```sh
-cc -std=c17 -Wall -Wextra -Wpedantic -O2 main.c -o /tmp/drum-machine
+cc -std=c17 -Wall -Wextra -Wpedantic -O2 main.c sequencer.c -o /tmp/drum-machine
 /tmp/drum-machine
 ```
 
 Run the focused sequencer regression test with:
 
 ```sh
-cc -std=c17 -Wall -Wextra -Wpedantic -O2 test_main.c -o /tmp/drum-machine-tests
+cc -std=c17 -Wall -Wextra -Wpedantic -O2 test_sequencer.c sequencer.c -o /tmp/drum-machine-tests
 /tmp/drum-machine-tests
 ```
 

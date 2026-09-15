@@ -1,16 +1,42 @@
 # Drum machine TODO
 
-Build a portable sequencer on macOS/Linux, then connect it to the ATmega328P.
-Work through one function at a time. Keep code in `main.c` until splitting it
-makes the project easier to understand. Explain each change before moving on.
+Build a portable sequencer, then prove a small playable ATmega328P prototype.
+Work in small, explained changes. Use this TODO as the current implementation
+order; the README describes the broader project direction.
+
+The next hardware milestone is one button triggering one synthesized voice,
+followed by a repeating pattern with start/stop and tempo control. Display,
+full recording controls, storage, and the final PCB can follow that milestone.
 
 ## Where we are
 
 - [x] Define `Note`, `Measure`, `Pattern`, and `Sequence`.
 - [x] Define `Sequencer` playback state.
-- [x] Add `sequencer_init()` with a read-only sequence pointer and stopped state.
+- [x] Add `sequencer_init()` with stopped state. The sequence pointer is now
+      mutable so recording can add notes to its patterns.
 - [x] Complete and demonstrate the first note-on/note-off playback path.
       Full playback controls and desktop clock work remain below.
+- [x] Split public types/API into `sequencer.h`, implementation into
+      `sequencer.c`, desktop demo into `main.c`, and tests into
+      `test_sequencer.c`.
+
+The six current tests cover basic playback state, selection, and recording.
+They do not yet assert the emitted event stream. `note_on()` and `note_off()`
+still print directly inside `sequencer.c`.
+
+The first code review found several correctness issues that must be fixed
+before the sequencer is connected to real input or hardware:
+
+- Playback can emit more notes than it can track, leaving notes without a
+  matching `note_off`. The current reproduction produced 160 note-ons and
+  only 128 note-offs.
+- Invalid note counts can read past the fixed note array. Invalid patterns are
+  not consistently rejected before selection, recording, or playback.
+- Notes can be inserted at or beyond the end of a measure and then never play.
+- A timestamp earlier than the previous timestamp can cause an enormous
+  catch-up loop because tick differences use unsigned arithmetic.
+- The AVR compiler reports about 4,940 bytes of stack for `main()` with the
+  current desktop-sized arrays, while the ATmega328P has 2,048 bytes of SRAM.
 
 Current capacities are 32 notes per measure, 4 measures per pattern, and
 4 patterns per sequence. These are desktop development limits, not a settled
@@ -46,55 +72,121 @@ each expected note exactly once, including simultaneous notes and tick zero.
       repeated updates at the same tick, and updates that skip over ticks.
 - [x] Feed simulated ticks from `main()` and check printed events against
       the example data. No sleeps or AVR includes needed.
-- [x] Record a simple desktop compile/run command and use it on macOS/Linux
-      as those environments become available.
+- [x] Record desktop compile/run commands in README and run them on macOS.
+      Linux verification remains unconfirmed.
 
 ## 2. Make playback complete
 
 - [x] Extract measure-length calculation when it helps readability. Check
       supported time signatures and invalid values before division.
 - [x] Advance through measures, then loop the selected pattern. Arrangements
-  remain deferred.
+      remain deferred.
 - [x] Add note-off events using `duration_ticks`. Track active notes so endings
-      survive measure boundaries. Decide how repeated overlapping pitches work.
-- [x] Add `sequencer_stop()`: stop playback, release active notes, reset position.
-- [x] Add pattern selection while stopped and queue switching during playback
-  for the next measure.
-- [x] Record a note at the current playback position and release it on time
-  or when playback stops.
-- [ ] Add focused assertions for event timing, simultaneous notes, looping,
-      skipped/repeated ticks, and stopping. Check behavior, not every field.
+      can survive measure boundaries. Boundary event tests remain below.
+- [x] Add `sequencer_stop()`: release active notes, reset measure position,
+      preserve the current pattern, and cancel any queued selection.
+- [x] Select patterns immediately while stopped and queue them while playing.
+- [ ] Fix queued switching to happen at the next measure boundary and start
+      the target at its first measure. It currently waits for the entire
+      pattern to end. Test a source pattern with multiple measures.
+- [ ] Cover queued-selection rules: the latest request wins, selecting the
+      current pattern cancels the request, and stopping cancels it too.
+- [x] Add `sequencer_record_note()` for playback: the caller supplies a clock
+      tick and a known duration; the note is stored and triggered immediately.
+      This is not yet press/release recording or a complete editing interface.
+- [ ] Move printing out of `sequencer.c` behind a small note-event output
+      interface. Let the demo print events, tests capture them, and the synth
+      consume them. Keep the interface small; add modules only when needed.
+- [ ] Assert emitted pitch, velocity, tick, and event order for tick zero,
+      simultaneous notes, skipped/repeated ticks, multi-measure looping,
+      queued switching, recording across a boundary and replay on the next
+      loop, and stopping. Extend the existing tests around observable behavior.
+- [ ] Validate target patterns before selection/playback and before recording
+      indexes their arrays: measure counts, signatures, note counts, and note
+      positions within the measure. Reject invalid input without partial edits.
+- [ ] Handle active-note capacity before emitting note-on. Playback currently
+      emits even if no tracking slot is free, which can leave a note without
+      a matching note-off. Choose a simple drop or voice-stealing rule.
+- [ ] Reject backward or stale clock timestamps before entering the update loop.
+      Define the behavior for a missed update and cap catch-up work so a bad
+      timestamp cannot freeze the application.
+- [ ] Choose repeated-pitch behavior for the first drum voice, preferably
+      retriggering it. Ensure an older note ending cannot cut off its retrigger.
+      Specify velocity-zero behavior at the event boundary as well.
 
 Pause/resume is separate from stop/restart. Add it when needed, with an explicit
 decision about held notes and elapsed time while paused.
 
-## 3. Run with real desktop time
+## 3. Check hardware fit and add the musical clock
+
+Do the hardware budget and output-path checks alongside the playback fixes.
+They determine which capacities and timing choices are practical.
+
+- [ ] Measure target RAM/flash needs with the AVR toolchain. The current AVR
+      compile reports about 4,940 bytes of stack for `main()` against 2,048
+      bytes of ATmega328P SRAM. Budget patterns,
+      active notes, stack, synth state, and display buffers together. Choose
+      smaller capacities or a compact representation before instantiating the
+      current desktop arrays on the ATmega328P.
+- [ ] Verify a practical audio path for the ATmega328P against the component
+      datasheets. Check PWM plus filter/amplifier versus the interface required
+      by the available MAX98357 module; owning the module does not establish
+      compatibility. Choose the first output before soldering its circuit.
+- [ ] Assign pins and timers for programming, timekeeping, audio output,
+      buttons, LED shift register, pots, and I2C display. Verify clock frequency
+      and supply requirements before committing to the board layout.
 
 - [ ] Add clock code that converts elapsed time and BPM into 96-PPQN ticks.
       Preserve fractional time to avoid accumulating rounding drift.
 - [ ] Supply time from a desktop monotonic clock and reuse the same sequencer.
 - [ ] Decide how tempo changes, playback restart, and counter rollover work.
-- [ ] Try a minimal desktop sound output if useful. Keep audio sample timing
-      separate from musical ticks, and keep output details outside sequencing.
+      Define a maximum update gap and how stale/backward timestamps are handled
+      so they cannot cause an enormous catch-up loop.
+- [ ] Test fractional timing and tempo changes with simulated elapsed time;
+      use a short real-time desktop demo to exercise the same clock.
 
-## 4. Pivot to hardware when ready
+## 4. First playable hardware prototype
 
-- [ ] Measure RAM/flash needs and choose smaller capacities or storage before
-      instantiating the current nested arrays on the ATmega328P.
-- [ ] Implement the ATmega328P timer and feed its time into the musical clock.
-- [ ] Prove one note event can produce sound with the chosen output hardware.
-- [ ] Add button press/hold/release events, then LEDs and the display.
-- [ ] Implement the proposed PLAY/SOUND/PATTERN/WRITE controls, four-step paging,
-      dedicated volume, and context-dependent control knob/encoder.
-- [ ] Add pattern saving after choosing a representation that fits storage.
+- [ ] Bring up ATmega programming, power/decoupling, and a non-blocking LED
+      heartbeat. Replace the inherited ATtiny85 timer with an ATmega328P timer.
+- [ ] Generate one simple drum voice and prove one note event produces sound
+      through the verified output circuit. Keep audio sample timing separate
+      from musical ticks. Use a desktop audio experiment only if it helps here.
+- [ ] Add one debounced button with press/hold/release events and use it to
+      trigger that voice immediately, including while transport is stopped.
+- [ ] Feed the hardware clock into the sequencer and play one repeating
+      pattern. Add start/stop and tempo control; check responsiveness and sound
+      while controls are being read.
+
+This milestone is enough to start playing with the hardware. The full editor
+and recording modes do not need to be finished first.
+
+## 5. Editing, recording, and the remaining controls
+
+- [ ] Add the remaining buttons, shift-register LEDs, and temporary display.
+- [ ] Settle the function-button assignments, beat/page selection, and knob
+      roles. PLAY/SOUND/PATTERN/WRITE and dedicated volume are proposals until
+      confirmed through use of the prototype.
+- [ ] Add step add/remove/edit operations while stopped and playing. Keep the
+      edit page distinct from the playback position. Define when an edit is
+      first heard and keep pattern edits in the main loop.
+- [ ] Separate live triggering from recording being armed. For initial drums,
+      use a chosen duration per hit with the existing recording API. Measure
+      duration from press/release only when a voice needs held notes.
+- [ ] Add optional quantization for live recording while retaining tick-based
+      timing for unquantized notes. Define recording behavior on pattern switch
+      and stop, and when the measure is full.
+- [ ] Add pattern saving after choosing a representation that fits EEPROM;
+      save deliberately rather than on every control event.
+- [ ] Finish speaker/headphone routing, battery power, and enclosure choices;
+      verify the circuit and resource budget before making the final PCB.
 
 Hardware parts, power, and output circuitry remain provisional. Verify them
 when selecting and connecting hardware.
 
 ## Later, only as needed
 
-- [ ] Step editing and live recording, then quantization and swing.
-- [ ] Pattern switching during playback and optional pattern arrangements.
+- [ ] Swing and optional pattern arrangements.
 - [ ] Tracks/routing when instrument selection needs more than pitch mapping.
 - [ ] MIDI output, melodic voices, samples, and external storage.
 - [ ] Parameter automation and more controls.
