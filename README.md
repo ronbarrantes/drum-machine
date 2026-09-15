@@ -158,6 +158,22 @@ The button state should preserve:
 9. Test two-AAA and experimental coin-cell power.
 10. Choose the final speaker, jack, amplifier, display, and PCB layout.
 
+## Desktop verification
+
+Build and run the demo with a C compiler:
+
+```sh
+cc -std=c17 -Wall -Wextra -Wpedantic -O2 main.c -o /tmp/drum-machine
+/tmp/drum-machine
+```
+
+Run the focused sequencer regression test with:
+
+```sh
+cc -std=c17 -Wall -Wextra -Wpedantic -O2 test_main.c -o /tmp/drum-machine-tests
+/tmp/drum-machine-tests
+```
+
 ## Open interface decisions
 
 - Exact jobs of the four function buttons

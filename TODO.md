@@ -46,21 +46,22 @@ each expected note exactly once, including simultaneous notes and tick zero.
       repeated updates at the same tick, and updates that skip over ticks.
 - [x] Feed simulated ticks from `main()` and check printed events against
       the example data. No sleeps or AVR includes needed.
-- [ ] Record a simple desktop compile/run command and use it on macOS/Linux
+- [x] Record a simple desktop compile/run command and use it on macOS/Linux
       as those environments become available.
 
 ## 2. Make playback complete
 
 - [x] Extract measure-length calculation when it helps readability. Check
       supported time signatures and invalid values before division.
-- [ ] Advance through measures, then loop the selected pattern. The current
-      draft advances through every pattern automatically; the writeup calls
-      for selected-pattern looping, with arrangements deferred.
+- [x] Advance through measures, then loop the selected pattern. Arrangements
+  remain deferred.
 - [x] Add note-off events using `duration_ticks`. Track active notes so endings
       survive measure boundaries. Decide how repeated overlapping pitches work.
 - [x] Add `sequencer_stop()`: stop playback, release active notes, reset position.
-- [ ] Add pattern selection while stopped. Leave switching during playback
-      until we choose when the switch takes effect.
+- [x] Add pattern selection while stopped and queue switching during playback
+  for the next measure.
+- [x] Record a note at the current playback position and release it on time
+  or when playback stops.
 - [ ] Add focused assertions for event timing, simultaneous notes, looping,
       skipped/repeated ticks, and stopping. Check behavior, not every field.
 
