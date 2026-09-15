@@ -34,59 +34,121 @@ typedef struct {
 } Sequence;
 
 typedef struct {
-  Sequence *sequence;
+  const Sequence *sequence;
   uint8_t curr_pattern;
   uint8_t curr_measure;
-  uint16_t curr_tick;
+  uint32_t curr_tick;
+  uint32_t started_at_tick;
   uint32_t last_tick_at;
   bool playing;
 } Sequencer;
 
-void sequencer_start(Sequencer *sequencer) {
+void sequencer_init(Sequencer *sequencer, const Sequence *sequence) {
   *sequencer = (Sequencer){
     .playing = false,
     .curr_measure = 0,
     .curr_pattern = 0,
     .curr_tick = 0,
+    .started_at_tick = 0,
     .last_tick_at = 0,
-    .sequence = NULL,
+    .sequence = sequence,
   };
 }
 
-void sequencer_update(Sequencer *sequencer, uint32_t now_us) {
-  if (sequencer->sequence == NULL || !sequencer->playing) {
+// Add one note to a measure without changing notes already stored there.
+bool measure_add_note(
+  Measure *measure,
+  uint8_t pitch,
+  uint8_t velocity,
+  uint16_t duration_ticks,
+  uint32_t start_tick
+) {
+  if (measure == NULL || measure->note_count >= MAX_NOTES_PER_MEASURE ||
+      pitch > 127 || velocity > 127 || duration_ticks == 0) {
+    return false;
+  }
+
+  measure->notes[measure->note_count++] = (Note){
+    .pitch = pitch,
+    .velocity = velocity,
+    .duration_ticks = duration_ticks,
+    .start_tick = start_tick,
+  };
+  return true;
+}
+
+// Restart the selected pattern. Invalid input leaves playback state unchanged.
+bool sequencer_play(Sequencer *sequencer, uint32_t now_tick) {
+  if (sequencer == NULL || sequencer->sequence == NULL) {
+    return false;
+  }
+
+  const Sequence *sequence = sequencer->sequence;
+  if (sequence->pattern_count == 0 || sequence->pattern_count > MAX_PATTERNS ||
+      sequencer->curr_pattern >= sequence->pattern_count) {
+    return false;
+  }
+
+  const Pattern *pattern = &sequence->patterns[sequencer->curr_pattern];
+  if (pattern->measure_count == 0 ||
+      pattern->measure_count > MAX_MEASURES_PER_PATTERN) {
+    return false;
+  }
+
+  sequencer->curr_measure = 0;
+  sequencer->curr_tick = 0;
+  sequencer->started_at_tick = now_tick;
+  sequencer->last_tick_at = now_tick;
+  sequencer->playing = true;
+  return true;
+}
+
+void sequencer_update(Sequencer *sequencer, uint32_t now_tick) {
+  if (sequencer == NULL || sequencer->sequence == NULL || !sequencer->playing) {
     return;
   }
 
-  Sequence *sequence = sequencer->sequence;
+  const Sequence *sequence = sequencer->sequence;
 
-  // Advance tick
-  uint32_t tick_us = 60000000UL / sequence->bpm / PPQN;
-
-  if (now_us - sequencer->last_tick_at >= tick_us) {
-    sequencer->curr_tick++;
-    sequencer->last_tick_at += tick_us;
+  if (sequence->pattern_count == 0 || sequence->pattern_count > MAX_PATTERNS ||
+      sequencer->curr_pattern >= sequence->pattern_count) {
+    return;
   }
 
-  // Current pattern + measure
-  Pattern *pattern = &sequence->patterns[sequencer->curr_pattern];
-  Measure *measure = &pattern->measures[sequencer->curr_measure];
+  uint32_t ticks_to_advance = now_tick - sequencer->last_tick_at;
+  sequencer->last_tick_at = now_tick;
 
-  // How many ticks are in this measure?
-  uint16_t measure_ticks =
-    PPQN * measure->beats_per_measure * 4 / measure->beat_unit;
+  while (ticks_to_advance > 0) {
+    const Pattern *pattern = &sequence->patterns[sequencer->curr_pattern];
+    if (pattern->measure_count == 0 ||
+        pattern->measure_count > MAX_MEASURES_PER_PATTERN ||
+        sequencer->curr_measure >= pattern->measure_count) {
+      return;
+    }
 
-  // Next measure
-  if (sequencer->curr_tick >= measure_ticks) {
+    const Measure *measure = &pattern->measures[sequencer->curr_measure];
+    if (measure->beats_per_measure == 0 || measure->beat_unit == 0) {
+      return;
+    }
+
+    uint32_t measure_ticks =
+      (uint32_t)PPQN * measure->beats_per_measure * 4 / measure->beat_unit;
+    if (measure_ticks == 0) {
+      return;
+    }
+
+    uint32_t remaining_ticks = measure_ticks - sequencer->curr_tick;
+    if (ticks_to_advance < remaining_ticks) {
+      sequencer->curr_tick += ticks_to_advance;
+      break;
+    }
+
+    ticks_to_advance -= remaining_ticks;
     sequencer->curr_tick = 0;
     sequencer->curr_measure++;
-
-    // Next pattern
     if (sequencer->curr_measure >= pattern->measure_count) {
       sequencer->curr_measure = 0;
       sequencer->curr_pattern++;
-
-      // End of sequence -> loop back
       if (sequencer->curr_pattern >= sequence->pattern_count) {
         sequencer->curr_pattern = 0;
       }
