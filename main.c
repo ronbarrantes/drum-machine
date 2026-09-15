@@ -183,6 +183,12 @@ bool sequencer_play(Sequencer *sequencer, uint32_t now_tick) {
       pattern->measure_count > MAX_MEASURES_PER_PATTERN) {
     return false;
   }
+  for (uint8_t measure_index = 0; measure_index < pattern->measure_count;
+       measure_index++) {
+    if (measure_length_ticks(&pattern->measures[measure_index]) == 0) {
+      return false;
+    }
+  }
 
   if (sequencer->playing) {
     release_all_notes(sequencer, now_tick);
