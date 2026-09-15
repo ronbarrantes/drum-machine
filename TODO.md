@@ -8,6 +8,11 @@ The next hardware milestone is one button triggering one synthesized voice,
 followed by a repeating pattern with start/stop and tempo control. Display,
 full recording controls, storage, and the final PCB can follow that milestone.
 
+The current control plan is eight illuminated pads, four function buttons, and
+two rotary encoders with push buttons. That is 14 button switches plus four
+quadrature encoder signals. The earlier four-pad and potentiometer assumptions
+are obsolete.
+
 ## Where we are
 
 - [x] Define `Note`, `Measure`, `Pattern`, and `Sequence`.
@@ -20,21 +25,23 @@ full recording controls, storage, and the final PCB can follow that milestone.
       `sequencer.c`, desktop demo into `main.c`, and tests into
       `test_sequencer.c`.
 
-The six current tests cover basic playback state, selection, and recording.
-They do not yet assert the emitted event stream. `note_on()` and `note_off()`
-still print directly inside `sequencer.c`.
+The current tests cover basic playback state, selection, recording, invalid
+input, event delivery, and active-note tracking. Event-stream coverage still
+needs more cases for skipped ticks, simultaneous notes, and recording across
+boundaries.
 
-The first code review found several correctness issues that must be fixed
-before the sequencer is connected to real input or hardware:
+The first code review found several correctness issues. They are now recorded
+below with their fixes checked off where complete:
 
-- Playback can emit more notes than it can track, leaving notes without a
-  matching `note_off`. The current reproduction produced 160 note-ons and
+- Playback previously emitted more notes than it could track, leaving notes
+  without a matching `note_off`. The reproduction produced 160 note-ons and
   only 128 note-offs.
-- Invalid note counts can read past the fixed note array. Invalid patterns are
-  not consistently rejected before selection, recording, or playback.
-- Notes can be inserted at or beyond the end of a measure and then never play.
-- A timestamp earlier than the previous timestamp can cause an enormous
-  catch-up loop because tick differences use unsigned arithmetic.
+- Invalid note counts previously could read past the fixed note array. Invalid
+  patterns were not consistently rejected before selection or playback.
+- Notes could be inserted at or beyond the end of a measure and then never
+  play.
+- An earlier timestamp could cause an enormous catch-up loop because tick
+  differences used unsigned arithmetic.
 - The AVR compiler reports about 4,940 bytes of stack for `main()` with the
   current desktop-sized arrays, while the ATmega328P has 2,048 bytes of SRAM.
 
@@ -86,33 +93,34 @@ each expected note exactly once, including simultaneous notes and tick zero.
 - [x] Add `sequencer_stop()`: release active notes, reset measure position,
       preserve the current pattern, and cancel any queued selection.
 - [x] Select patterns immediately while stopped and queue them while playing.
-- [ ] Fix queued switching to happen at the next measure boundary and start
-      the target at its first measure. It currently waits for the entire
-      pattern to end. Test a source pattern with multiple measures.
-- [ ] Cover queued-selection rules: the latest request wins, selecting the
+- [x] Fix queued switching to happen at the next measure boundary and start
+      the target at its first measure. Test a source pattern with multiple
+      measures.
+- [x] Cover queued-selection rules: the latest request wins, selecting the
       current pattern cancels the request, and stopping cancels it too.
 - [x] Add `sequencer_record_note()` for playback: the caller supplies a clock
       tick and a known duration; the note is stored and triggered immediately.
       This is not yet press/release recording or a complete editing interface.
-- [ ] Move printing out of `sequencer.c` behind a small note-event output
+- [x] Move printing out of `sequencer.c` behind a small note-event output
       interface. Let the demo print events, tests capture them, and the synth
       consume them. Keep the interface small; add modules only when needed.
-- [ ] Assert emitted pitch, velocity, tick, and event order for tick zero,
-      simultaneous notes, skipped/repeated ticks, multi-measure looping,
-      queued switching, recording across a boundary and replay on the next
-      loop, and stopping. Extend the existing tests around observable behavior.
-- [ ] Validate target patterns before selection/playback and before recording
+- [ ] Assert emitted pitch, velocity, and event order for simultaneous notes,
+      skipped ticks, recording across a boundary, and replay on the next loop.
+      Tick-zero, repeated-tick, looping, queued-switch, and stopping cases are
+      covered. Extend the existing tests around observable behavior.
+- [x] Validate target patterns before selection/playback and before recording
       indexes their arrays: measure counts, signatures, note counts, and note
       positions within the measure. Reject invalid input without partial edits.
-- [ ] Handle active-note capacity before emitting note-on. Playback currently
+- [x] Handle active-note capacity before emitting note-on. Playback previously
       emits even if no tracking slot is free, which can leave a note without
-      a matching note-off. Choose a simple drop or voice-stealing rule.
-- [ ] Reject backward or stale clock timestamps before entering the update loop.
-      Define the behavior for a missed update and cap catch-up work so a bad
-      timestamp cannot freeze the application.
-- [ ] Choose repeated-pitch behavior for the first drum voice, preferably
-      retriggering it. Ensure an older note ending cannot cut off its retrigger.
-      Specify velocity-zero behavior at the event boundary as well.
+      a matching note-off. The current rule reuses an active slot for the same
+      pitch and drops a new note when all slots are occupied.
+- [x] Reject backward clock timestamps before entering the update loop and cap
+      catch-up work at `MAX_TICKS_PER_UPDATE` so a bad timestamp cannot freeze
+      the application.
+- [x] Choose repeated-pitch behavior for the first drum voice. Retriggering
+      reuses that pitch's active slot so an older ending cannot cut it off.
+      Velocity-zero behavior remains part of the event boundary design.
 
 Pause/resume is separate from stop/restart. Add it when needed, with an explicit
 decision about held notes and elapsed time while paused.
@@ -133,15 +141,17 @@ They determine which capacities and timing choices are practical.
       by the available MAX98357 module; owning the module does not establish
       compatibility. Choose the first output before soldering its circuit.
 - [ ] Assign pins and timers for programming, timekeeping, audio output,
-      buttons, LED shift register, pots, and I2C display. Verify clock frequency
-      and supply requirements before committing to the board layout.
+      eight pads, four function buttons, two encoder switches, four encoder
+      signals, LED shift register, and I2C display. Verify whether the
+      ATmega328P needs an input expander or button matrix before committing to
+      the board layout.
 
 - [ ] Add clock code that converts elapsed time and BPM into 96-PPQN ticks.
       Preserve fractional time to avoid accumulating rounding drift.
 - [ ] Supply time from a desktop monotonic clock and reuse the same sequencer.
 - [ ] Decide how tempo changes, playback restart, and counter rollover work.
-      Define a maximum update gap and how stale/backward timestamps are handled
-      so they cannot cause an enormous catch-up loop.
+      Backward timestamps are rejected and catch-up work is capped at
+      `MAX_TICKS_PER_UPDATE`; test the chosen policy with the real clock.
 - [ ] Test fractional timing and tempo changes with simulated elapsed time;
       use a short real-time desktop demo to exercise the same clock.
 
@@ -163,8 +173,9 @@ and recording modes do not need to be finished first.
 
 ## 5. Editing, recording, and the remaining controls
 
-- [ ] Add the remaining buttons, shift-register LEDs, and temporary display.
-- [ ] Settle the function-button assignments, beat/page selection, and knob
+- [ ] Add the remaining pads, function buttons, encoder switches, encoder
+      signals, shift-register LEDs, and temporary display.
+- [ ] Settle the function-button assignments, beat/page selection, and encoder
       roles. PLAY/SOUND/PATTERN/WRITE and dedicated volume are proposals until
       confirmed through use of the prototype.
 - [ ] Add step add/remove/edit operations while stopped and playing. Keep the
@@ -191,5 +202,5 @@ when selecting and connecting hardware.
 - [ ] MIDI output, melodic voices, samples, and external storage.
 - [ ] Parameter automation and more controls.
 
-The four-button grid is an editing interface. Preserve tick-based note timing
+The eight-pad grid is an editing interface. Preserve tick-based note timing
 so the sequencer can also represent performances between grid positions.

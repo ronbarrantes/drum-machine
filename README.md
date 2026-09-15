@@ -6,10 +6,9 @@ A small, battery-powered drum machine for learning embedded C, audio, sequencing
 
 - ATmega328P in a DIP socket
 - Internal oscillator initially
-- Eight illuminated buttons
-  - Four reusable pad/step buttons
-  - Four function buttons whose assignments are intentionally undecided
-- Two knobs/potentiometers
+- Eight illuminated pads
+- Four function buttons
+- Two rotary encoders, each with a push button
 - Small 128-pixel I2C screen already on hand
 - One shift register controlling eight LEDs
 - Synthesized sounds initially; no sampling or microphone yet
@@ -22,7 +21,7 @@ Every button must support press, hold, and release events. Button meanings can t
 
 ## Sequencer interface
 
-The sequencer has 16 steps organized as four beats with four sixteenth-note subdivisions per beat. The four pad buttons edit one beat at a time:
+The sequencer has 16 steps organized as four beats with four sixteenth-note subdivisions per beat. The eight pads can edit steps, trigger voices, or select patterns depending on the active mode:
 
 ```text
 Beat 1:  * _ * _
@@ -39,7 +38,7 @@ Together they form the measure:
 
 The screen shows the current beat, voice, tempo, mode, and settings. During playback it can count beats 1 through 4 while the pad LEDs show the subdivisions and playhead.
 
-The same four pad buttons may become voice selectors, live triggers, pattern slots, or parameter controls in other modes. The four function buttons decide what the pad grid currently means.
+The eight pads may become voice selectors, live triggers, pattern slots, or parameter controls in other modes. The four function buttons decide what the pad grid currently means. The encoder rotations provide continuous controls, and their push buttons can act as modifiers or selections.
 
 ## Event and sound model
 
@@ -89,7 +88,7 @@ Raw speakers should be mounted by their rigid outer frame, never by the cone. A 
 - DIP sockets
 - Buttons
 - Diodes
-- Two or three potentiometers
+- Two rotary encoders with push buttons
 - Small I2C screens
 - Two shift registers
 - Through-hole LEDs
@@ -149,7 +148,7 @@ The button state should preserve:
 
 1. Implement and test the 16-step sequencer model on the computer.
 2. Bring up the ATmega timer and non-blocking main loop.
-3. Read all eight buttons and distinguish press, hold, and release.
+3. Read the eight pads, four function buttons, and two encoder switches. Distinguish press, hold, and release.
 4. Drive the eight LEDs through one shift register.
 5. Display beat, mode, and tempo on the temporary I2C screen.
 6. Generate MIDI-like events and route them to a simple synthesized voice.
@@ -177,7 +176,7 @@ cc -std=c17 -Wall -Wextra -Wpedantic -O2 test_sequencer.c sequencer.c -o /tmp/dr
 ## Open interface decisions
 
 - Exact jobs of the four function buttons
-- Whether either knob is permanently assigned to volume or tempo
+- Whether either encoder is permanently assigned to volume or tempo
 - How beat/page selection works
 - Voice count and voice-selection workflow
 - Pattern save/load workflow
