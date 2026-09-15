@@ -173,6 +173,13 @@ cc -std=c17 -Wall -Wextra -Wpedantic -O2 test_sequencer.c sequencer.c -o /tmp/dr
 /tmp/drum-machine-tests
 ```
 
+Run the terminal sequencer view with:
+
+```sh
+cc -std=c17 -Wall -Wextra -Wpedantic -O2 desktop_main.c sequencer.c -o /tmp/drum-machine-desktop
+/tmp/drum-machine-desktop
+```
+
 ## Open interface decisions
 
 - Exact jobs of the four function buttons

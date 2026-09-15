@@ -176,6 +176,74 @@ static void test_event_handler_receives_events(void) {
   assert(events[1].tick == 1024);
 }
 
+static void test_simultaneous_notes_preserve_event_order(void) {
+  Sequence sequence = make_sequence();
+  Measure *measure = &sequence.patterns[0].measures[0];
+  assert(measure_add_note(measure, 36, 100, 24, 0));
+  assert(measure_add_note(measure, 42, 80, 24, 0));
+  event_count = 0;
+  Sequencer sequencer;
+  sequencer_init(&sequencer, &sequence, capture_event, NULL);
+
+  assert(sequencer_play(&sequencer, 1000));
+  sequencer_update(&sequencer, 1024);
+  assert(event_count == 4);
+  assert(events[0].type == SEQUENCER_NOTE_ON);
+  assert(events[0].pitch == 36);
+  assert(events[1].type == SEQUENCER_NOTE_ON);
+  assert(events[1].pitch == 42);
+  assert(events[2].type == SEQUENCER_NOTE_OFF);
+  assert(events[3].type == SEQUENCER_NOTE_OFF);
+}
+
+static void test_skipped_ticks_emit_notes_between_updates(void) {
+  Sequence sequence = make_sequence();
+  Measure *measure = &sequence.patterns[0].measures[0];
+  assert(measure_add_note(measure, 60, 100, 24, 10));
+  assert(measure_add_note(measure, 62, 100, 24, 20));
+  event_count = 0;
+  Sequencer sequencer;
+  sequencer_init(&sequencer, &sequence, capture_event, NULL);
+
+  assert(sequencer_play(&sequencer, 1000));
+  sequencer_update(&sequencer, 1020);
+  assert(event_count == 2);
+  assert(events[0].type == SEQUENCER_NOTE_ON);
+  assert(events[0].pitch == 60);
+  assert(events[0].tick == 1010);
+  assert(events[1].type == SEQUENCER_NOTE_ON);
+  assert(events[1].pitch == 62);
+  assert(events[1].tick == 1020);
+
+  sequencer_update(&sequencer, 1034);
+  assert(event_count == 3);
+  assert(events[2].type == SEQUENCER_NOTE_OFF);
+  assert(events[2].pitch == 60);
+  assert(events[2].tick == 1034);
+}
+
+static void test_recording_crosses_measure_and_replays(void) {
+  Sequence sequence = make_sequence();
+  event_count = 0;
+  Sequencer sequencer;
+  sequencer_init(&sequencer, &sequence, capture_event, NULL);
+
+  assert(sequencer_play(&sequencer, 1000));
+  assert(sequencer_record_note(&sequencer, 1370, 60, 100, 30));
+  sequencer_update(&sequencer, 1400);
+  assert(events[0].type == SEQUENCER_NOTE_ON);
+  assert(events[0].tick == 1370);
+  assert(events[1].type == SEQUENCER_NOTE_OFF);
+  assert(events[1].tick == 1400);
+
+  event_count = 0;
+  sequencer_update(&sequencer, 1754);
+  assert(event_count == 1);
+  assert(events[0].type == SEQUENCER_NOTE_ON);
+  assert(events[0].pitch == 60);
+  assert(events[0].tick == 1754);
+}
+
 static void test_note_capacity_does_not_emit_untracked_notes(void) {
   Sequence sequence = make_sequence();
   Measure *measure = &sequence.patterns[0].measures[0];
@@ -226,6 +294,9 @@ int main(void) {
   test_pattern_switch_happens_at_next_measure();
   test_backward_clock_is_ignored();
   test_event_handler_receives_events();
+  test_simultaneous_notes_preserve_event_order();
+  test_skipped_ticks_emit_notes_between_updates();
+  test_recording_crosses_measure_and_replays();
   test_note_capacity_does_not_emit_untracked_notes();
   test_latest_pattern_request_wins();
   test_large_clock_gap_is_capped();

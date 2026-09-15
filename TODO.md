@@ -24,11 +24,12 @@ are obsolete.
 - [x] Split public types/API into `sequencer.h`, implementation into
       `sequencer.c`, desktop demo into `main.c`, and tests into
       `test_sequencer.c`.
+- [x] Add `desktop_main.c`, a terminal view with a 16-step grid, voice rows,
+      tempo, selected pattern, and a moving playhead.
 
 The current tests cover basic playback state, selection, recording, invalid
-input, event delivery, and active-note tracking. Event-stream coverage still
-needs more cases for skipped ticks, simultaneous notes, and recording across
-boundaries.
+input, event delivery, active-note tracking, simultaneous notes, skipped
+ticks, and recording across a measure boundary.
 
 The first code review found several correctness issues. They are now recorded
 below with their fixes checked off where complete:
@@ -104,10 +105,10 @@ each expected note exactly once, including simultaneous notes and tick zero.
 - [x] Move printing out of `sequencer.c` behind a small note-event output
       interface. Let the demo print events, tests capture them, and the synth
       consume them. Keep the interface small; add modules only when needed.
-- [ ] Assert emitted pitch, velocity, and event order for simultaneous notes,
+- [x] Assert emitted pitch, velocity, and event order for simultaneous notes,
       skipped ticks, recording across a boundary, and replay on the next loop.
       Tick-zero, repeated-tick, looping, queued-switch, and stopping cases are
-      covered. Extend the existing tests around observable behavior.
+      covered.
 - [x] Validate target patterns before selection/playback and before recording
       indexes their arrays: measure counts, signatures, note counts, and note
       positions within the measure. Reject invalid input without partial edits.
@@ -148,7 +149,8 @@ They determine which capacities and timing choices are practical.
 
 - [ ] Add clock code that converts elapsed time and BPM into 96-PPQN ticks.
       Preserve fractional time to avoid accumulating rounding drift.
-- [ ] Supply time from a desktop monotonic clock and reuse the same sequencer.
+- [x] Supply time from a desktop monotonic clock and reuse the same sequencer
+      in the terminal view.
 - [ ] Decide how tempo changes, playback restart, and counter rollover work.
       Backward timestamps are rejected and catch-up work is capped at
       `MAX_TICKS_PER_UPDATE`; test the chosen policy with the real clock.
