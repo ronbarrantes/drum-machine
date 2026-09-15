@@ -36,15 +36,15 @@ each expected note exactly once, including simultaneous notes and tick zero.
 - [x] Change `sequencer_update()` to consume musical ticks. Remove its
       microsecond/BPM conversion. Keep elapsed clock time and measure position
       clearly distinguished in names and types.
-- [ ] Connect one measure to a pattern and sequence in `main()`. Use distinct
+- [x] Connect one measure to a pattern and sequence in `main()`. Use distinct
       note times, two simultaneous notes, and MIDI-style pitches within 0–127.
 - [x] Add a note-setting helper that validates MIDI pitch/velocity ranges,
       positive duration, and measure capacity.
-- [ ] Add a small note-on output function that initially prints pitch,
+- [x] Add a small note-on output function that initially prints pitch,
       velocity, and musical time.
-- [ ] Trigger every note due at the current position. Handle tick zero once,
+- [x] Trigger every note due at the current position. Handle tick zero once,
       repeated updates at the same tick, and updates that skip over ticks.
-- [ ] Feed simulated ticks from `main()` and check printed events against
+- [x] Feed simulated ticks from `main()` and check printed events against
       the example data. No sleeps or AVR includes needed.
 - [ ] Record a simple desktop compile/run command and use it on macOS/Linux
       as those environments become available.

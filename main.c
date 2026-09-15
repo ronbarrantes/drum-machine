@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 #define PPQN 96
@@ -55,6 +56,25 @@ void sequencer_init(Sequencer *sequencer, const Sequence *sequence) {
   };
 }
 
+void note_on(uint8_t pitch, uint8_t velocity, uint32_t tick) {
+  printf("note_on pitch=%u velocity=%u tick=%lu\n",
+         pitch,
+         velocity,
+         (unsigned long)tick);
+}
+
+static void emit_notes_at_position(const Sequencer *sequencer, uint32_t tick) {
+  const Pattern *pattern = &sequencer->sequence->patterns[sequencer->curr_pattern];
+  const Measure *measure = &pattern->measures[sequencer->curr_measure];
+
+  for (uint8_t index = 0; index < measure->note_count; index++) {
+    const Note *note = &measure->notes[index];
+    if (note->start_tick == sequencer->curr_tick) {
+      note_on(note->pitch, note->velocity, tick);
+    }
+  }
+}
+
 // Add one note to a measure without changing notes already stored there.
 bool measure_add_note(
   Measure *measure,
@@ -100,6 +120,7 @@ bool sequencer_play(Sequencer *sequencer, uint32_t now_tick) {
   sequencer->started_at_tick = now_tick;
   sequencer->last_tick_at = now_tick;
   sequencer->playing = true;
+  emit_notes_at_position(sequencer, now_tick);
   return true;
 }
 
@@ -137,36 +158,46 @@ void sequencer_update(Sequencer *sequencer, uint32_t now_tick) {
       return;
     }
 
-    uint32_t remaining_ticks = measure_ticks - sequencer->curr_tick;
-    if (ticks_to_advance < remaining_ticks) {
-      sequencer->curr_tick += ticks_to_advance;
-      break;
-    }
-
-    ticks_to_advance -= remaining_ticks;
-    sequencer->curr_tick = 0;
-    sequencer->curr_measure++;
-    if (sequencer->curr_measure >= pattern->measure_count) {
-      sequencer->curr_measure = 0;
-      sequencer->curr_pattern++;
-      if (sequencer->curr_pattern >= sequence->pattern_count) {
-        sequencer->curr_pattern = 0;
+    sequencer->curr_tick++;
+    ticks_to_advance--;
+    if (sequencer->curr_tick >= measure_ticks) {
+      sequencer->curr_tick = 0;
+      sequencer->curr_measure++;
+      if (sequencer->curr_measure >= pattern->measure_count) {
+        sequencer->curr_measure = 0;
+        sequencer->curr_pattern++;
+        if (sequencer->curr_pattern >= sequence->pattern_count) {
+          sequencer->curr_pattern = 0;
+        }
       }
     }
+
+    emit_notes_at_position(sequencer, now_tick - ticks_to_advance);
   }
 }
 
 int main(void) {
-  Note note1 =
-    (Note){.pitch = 232, .duration_ticks = 92, .velocity = 80, .start_tick = 0};
+  Sequence sequence = {0};
+  sequence.pattern_count = 1;
+  sequence.patterns[0].measure_count = 1;
+  sequence.patterns[0].measures[0].beats_per_measure = 4;
+  sequence.patterns[0].measures[0].beat_unit = 4;
 
-  Note notes[] = {note1, note1, note1};
-  uint8_t note_count = sizeof(notes) / sizeof(notes[0]);
+  Measure *measure = &sequence.patterns[0].measures[0];
+  measure_add_note(measure, 36, 100, 24, 0);
+  measure_add_note(measure, 42, 80, 12, 24);
+  measure_add_note(measure, 38, 110, 24, 48);
+  measure_add_note(measure, 46, 90, 12, 48);
 
-  Measure measure1 =
-    (Measure){.note_count = note_count, .beats_per_measure = 4, .beat_unit = 4};
+  Sequencer sequencer;
+  sequencer_init(&sequencer, &sequence);
+  if (!sequencer_play(&sequencer, 1000)) {
+    return 1;
+  }
 
-  memcpy(measure1.notes, notes, sizeof(notes));
+  sequencer_update(&sequencer, 1000);
+  sequencer_update(&sequencer, 1024);
+  sequencer_update(&sequencer, 1048);
 
   return 0;
 }
