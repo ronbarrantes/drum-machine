@@ -26,6 +26,11 @@ are obsolete.
       `test_sequencer.c`.
 - [x] Add `desktop_main.c`, a terminal view with a 16-step grid, voice rows,
       tempo, selected pattern, and a moving playhead.
+- [x] Add a desktop from-scratch synth with kick, snare, closed-hat, and
+      open-hat voices, simple envelopes, and WAV rendering through the
+      sequencer event callback. Play the result with macOS `afplay`.
+- [x] Add `atmega_preset.c`, a no-controls/no-display hardware target with a
+      hard-coded four-voice pattern and PWM audio output on `PD3/OC2B`.
 
 The current tests cover basic playback state, selection, recording, invalid
 input, event delivery, active-note tracking, simultaneous notes, skipped
@@ -159,11 +164,10 @@ They determine which capacities and timing choices are practical.
 
 ## 4. First playable hardware prototype
 
+- [ ] Flash `atmega_preset.c`, verify the 8 MHz clock and PWM waveform, and
+      prove the preset pattern produces sound through a safe output circuit.
 - [ ] Bring up ATmega programming, power/decoupling, and a non-blocking LED
       heartbeat. Replace the inherited ATtiny85 timer with an ATmega328P timer.
-- [ ] Generate one simple drum voice and prove one note event produces sound
-      through the verified output circuit. Keep audio sample timing separate
-      from musical ticks. Use a desktop audio experiment only if it helps here.
 - [ ] Add one debounced button with press/hold/release events and use it to
       trigger that voice immediately, including while transport is stopped.
 - [ ] Feed the hardware clock into the sequencer and play one repeating

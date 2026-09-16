@@ -180,6 +180,27 @@ cc -std=c17 -Wall -Wextra -Wpedantic -O2 desktop_main.c sequencer.c -o /tmp/drum
 /tmp/drum-machine-desktop
 ```
 
+Render and play the first synthesized voices with macOS audio playback:
+
+```sh
+cc -std=c17 -Wall -Wextra -Wpedantic -O2 audio_demo.c synth.c sequencer.c -lm -o /tmp/drum-machine-audio
+/tmp/drum-machine-audio
+afplay /tmp/drum-machine-demo.wav
+```
+
+Build the minimal ATmega328P preset firmware. It boots directly into a
+hard-coded four-voice pattern and outputs 8-bit PWM audio on `PD3/OC2B`:
+
+```sh
+avr-gcc -mmcu=atmega328p -DF_CPU=8000000UL -std=c17 -Wall -Wextra -Os \
+  atmega_preset.c -o /tmp/drum-machine-preset.elf
+avr-objcopy -O ihex -R .eeprom /tmp/drum-machine-preset.elf \
+  /tmp/drum-machine-preset.hex
+```
+
+The PWM output needs a suitable resistor/capacitor and amplifier before a
+speaker. Do not connect a speaker directly to the ATmega output pin.
+
 ## Open interface decisions
 
 - Exact jobs of the four function buttons
