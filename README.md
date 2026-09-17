@@ -201,6 +201,26 @@ avr-objcopy -O ihex -R .eeprom /tmp/drum-machine-preset.elf \
 The PWM output needs a suitable resistor/capacitor and amplifier before a
 speaker. Do not connect a speaker directly to the ATmega output pin.
 
+The verified MAX98357A target synthesizes the same four drum voices and sends
+continuous I²S-like audio using USART Master SPI and Timer1:
+
+```sh
+./flash.sh atmega_max_preset.c
+```
+
+Its breadboard pinout is:
+
+```text
+ATmega DIP pin 3  (PD1/TXD)  -> MAX DIN
+ATmega DIP pin 6  (PD4/XCK)  -> MAX BCLK
+ATmega DIP pin 15 (PB1/OC1A) -> MAX LRC
+ATmega DIP pin 14 (PB0)      -> resistor -> status LED -> GND
+```
+
+The measured clocks were about 506 kHz BCLK and 15.72 kHz LRC with an exact
+32:1 hardware ratio. See `ATMEGA_MAX98357_HARDWARE.md` for power, decoupling,
+speaker, fuse, and scope details.
+
 ## Open interface decisions
 
 - Exact jobs of the four function buttons

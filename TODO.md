@@ -31,6 +31,13 @@ are obsolete.
       sequencer event callback. Play the result with macOS `afplay`.
 - [x] Add `atmega_preset.c`, a no-controls/no-display hardware target with a
       hard-coded four-voice pattern and PWM audio output on `PD3/OC2B`.
+- [x] Add an I²S MAX98357A preset target with a 500 ms status LED blink and
+      a hard-coded funky-drummer-inspired pattern. Hardware wiring is in
+      `ATMEGA_MAX98357_HARDWARE.md`.
+- [x] Prove MAX98357A audio on the breadboard. Ordinary SPI left gaps in BCLK
+      and produced an unsupported frame rate. USART Master SPI now supplies a
+      continuous bit clock while Timer1 supplies a hardware 32:1 BCLK/LRCLK
+      relationship. The measured clocks were about 506 kHz and 15.72 kHz.
 
 The current tests cover basic playback state, selection, recording, invalid
 input, event delivery, active-note tracking, simultaneous notes, skipped
@@ -142,10 +149,10 @@ They determine which capacities and timing choices are practical.
       active notes, stack, synth state, and display buffers together. Choose
       smaller capacities or a compact representation before instantiating the
       current desktop arrays on the ATmega328P.
-- [ ] Verify a practical audio path for the ATmega328P against the component
-      datasheets. Check PWM plus filter/amplifier versus the interface required
-      by the available MAX98357 module; owning the module does not establish
-      compatibility. Choose the first output before soldering its circuit.
+- [x] Verify a practical audio path for the ATmega328P against the component
+      datasheets. The breadboard now produces MAX98357A audio with continuous
+      clocks from USART Master SPI and Timer1. Keep the separate PWM target as
+      a fallback; the MAX module remains the first speaker-output prototype.
 - [ ] Assign pins and timers for programming, timekeeping, audio output,
       eight pads, four function buttons, two encoder switches, four encoder
       signals, LED shift register, and I2C display. Verify whether the
@@ -164,10 +171,12 @@ They determine which capacities and timing choices are practical.
 
 ## 4. First playable hardware prototype
 
-- [ ] Flash `atmega_preset.c`, verify the 8 MHz clock and PWM waveform, and
-      prove the preset pattern produces sound through a safe output circuit.
-- [ ] Bring up ATmega programming, power/decoupling, and a non-blocking LED
-      heartbeat. Replace the inherited ATtiny85 timer with an ATmega328P timer.
+- [x] Flash the MAX98357A clock-lock target, verify its waveform, and hear its
+      test tone through the speaker. The low-volume four-voice preset is now
+      flashed for the next listening check. I²S uses DIP pins 3, 6, and 15.
+- [x] Bring up ATmega programming, power/decoupling, and a non-blocking LED
+      heartbeat. The audio clocks run entirely in hardware, so the heartbeat
+      cannot pause BCLK or LRC.
 - [ ] Add one debounced button with press/hold/release events and use it to
       trigger that voice immediately, including while transport is stopped.
 - [ ] Feed the hardware clock into the sequencer and play one repeating

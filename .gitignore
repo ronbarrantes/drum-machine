@@ -43,6 +43,8 @@
 *.i*86
 *.x86_64
 *.hex
+!atmega_preset.hex
+!atmega_max_preset.hex
 
 # Debug files
 *.dSYM/
