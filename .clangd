@@ -1,0 +1,17 @@
+CompileFlags:
+  Add:
+    - "-I/usr/avr/include"
+    - "-I/usr/lib/gcc/avr/16.1.0/include"
+    - "-I/usr/lib/gcc/avr/16.1.0/include-fixed"
+    - "-I/opt/homebrew/opt/avr-gcc@9/avr/include"
+    - "-I/opt/homebrew/opt/avr-gcc@9/lib/avr-gcc/9/gcc/avr/9.5.0/include"
+    - "-I/opt/homebrew/opt/avr-gcc@9/lib/avr-gcc/9/gcc/avr/9.5.0/include-fixed"
+    - "--target=avr"
+    - "-mmcu=atmega328p"
+    - "-DF_CPU=1000000UL"
+    - "-Os"
+    - "-D__AVR_ATmega328P__"
+
+Diagnostics:
+  Suppress:
+    - "-Wunknown-attributes"
